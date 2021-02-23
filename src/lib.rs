@@ -85,14 +85,14 @@ where
         // Do not reset, as it is optional
     }
 
-    fn set_compare(&mut self, val: <Self as Clock>::T) {
+    fn set_compare(&mut self, val: &Instant<Self>) {
         // The input `val` is in the timer, but the SysTick is a down-counter.
         // We need to convert into its domain.
         let now: Instant<Self> = Instant::new(self.dwt.cyccnt.read());
 
         let max = 0x00ff_ffff;
 
-        let dur = match Instant::new(val).checked_duration_since(&now) {
+        let dur = match val.checked_duration_since(&now) {
             None => 1, // In the past
 
             // ARM Architecture Reference Manual says:
