@@ -1,3 +1,5 @@
+//! # `Monotonic` implementation based on DWT and SysTick
+
 #![no_std]
 
 use core::marker::PhantomData;
@@ -12,7 +14,7 @@ use typenum::Unsigned;
 ///
 /// As `typenum` only has continuous numbers up to about 1000, this implementation is split into 3
 /// generic parts, MHz, KHz and Hz, where each can be in the span [0, 1000]. The final speed of
-/// this monotonic will be `MHz * 1_000_000 + KHz * 1_000 + Hz.
+/// this monotonic will be `MHz * 1_000_000 + KHz * 1_000 + Hz`.
 pub struct DwtSystick<MHZ, KHZ, HZ> {
     dwt: DWT,
     systick: SYST,
