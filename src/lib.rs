@@ -9,6 +9,7 @@ use rtic_monotonic::{
     Clock, Instant, Monotonic,
 };
 use typenum::Unsigned;
+pub use typenum::consts;
 
 /// DWT and Systick combination implementing `embedded_time::Clock` and `rtic_monotonic::Monotonic`
 ///
