@@ -36,6 +36,8 @@ where
     /// so the real speed and the declared speed can be compared.
     pub fn new(dcb: &mut DCB, mut dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
         assert!(MHZ::U32 * 1_000_000 + KHZ::U32 * 1_000 + HZ::U32 == sysclk);
+        assert!(KHZ::U32 < 1000);
+        assert!(HZ::U32 < 1000);
 
         dcb.enable_trace();
         DWT::unlock();
