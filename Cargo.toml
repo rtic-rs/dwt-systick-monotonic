@@ -1,5 +1,5 @@
 [package]
-name = "dwt_systick_clock"
+name = "dwt_systick_monotonic"
 version = "0.1.0"
 authors = ["Emil Fresk <emil.fresk@gmail.com>"]
 edition = "2018"
