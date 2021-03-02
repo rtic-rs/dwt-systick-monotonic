@@ -8,8 +8,8 @@ use rtic_monotonic::{
     embedded_time::{clock::Error, fraction::Fraction},
     Clock, Instant, Monotonic,
 };
-use typenum::Unsigned;
 pub use typenum::consts;
+use typenum::Unsigned;
 
 /// DWT and Systick combination implementing `embedded_time::Clock` and `rtic_monotonic::Monotonic`
 ///
@@ -34,19 +34,17 @@ where
     ///
     /// Note that the `sysclk` parameter should come from e.g. the HAL's clock generation function
     /// so the real speed and the declared speed can be compared.
-    pub fn new(dcb: &mut DCB, mut dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
+    pub fn new(dcb: &mut DCB, dwt: DWT, systick: SYST, sysclk: u32) -> Self {
         assert!(MHZ::U32 * 1_000_000 + KHZ::U32 * 1_000 + HZ::U32 == sysclk);
         assert!(KHZ::U32 < 1000);
         assert!(HZ::U32 < 1000);
 
         dcb.enable_trace();
         DWT::unlock();
-        dwt.enable_cycle_counter();
-
-        systick.set_clock_source(SystClkSource::Core);
-        systick.enable_counter();
 
         unsafe { dwt.cyccnt.write(0) };
+
+        // We do not start the counter here, it is started in `reset`.
 
         DwtSystick {
             dwt,
@@ -83,8 +81,13 @@ where
 {
     const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = true;
 
-    fn reset(&mut self) {
-        // Do not reset, as it is optional
+    unsafe fn reset(&mut self) {
+        self.dwt.enable_cycle_counter();
+
+        self.systick.set_clock_source(SystClkSource::Core);
+        self.systick.enable_counter();
+
+        self.dwt.cyccnt.write(0);
     }
 
     fn set_compare(&mut self, val: &Instant<Self>) {
