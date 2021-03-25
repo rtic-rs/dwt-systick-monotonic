@@ -18,6 +18,5 @@ name = "dwt_systick_monotonic"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-typenum = "1"
 cortex-m = "0.7"
 rtic-monotonic = "0.1.0-alpha.0"
