@@ -1,6 +1,6 @@
 [package]
 name = "dwt-systick-monotonic"
-version = "0.1.0-alpha.0"
+version = "0.1.0-alpha.1"
 authors = [
   "The Real-Time Interrupt-driven Concurrency developers",
   "Emil Fresk <emil.fresk@gmail.com>",
