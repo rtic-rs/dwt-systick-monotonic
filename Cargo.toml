@@ -1,6 +1,6 @@
 [package]
 name = "dwt-systick-monotonic"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 authors = [
   "The Real-Time Interrupt-driven Concurrency developers",
   "Emil Fresk <emil.fresk@gmail.com>",
@@ -19,4 +19,4 @@ name = "dwt_systick_monotonic"
 
 [dependencies]
 cortex-m = "0.7"
-rtic-monotonic = "0.1.0-alpha.0"
+rtic-monotonic = "0.1.0-alpha.1"
