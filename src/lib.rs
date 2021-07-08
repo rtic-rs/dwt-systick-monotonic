@@ -72,7 +72,7 @@ impl<const FREQ: u32> Monotonic for DwtSystick<FREQ> {
             // "Setting SYST_RVR to zero has the effect of
             // disabling the SysTick counter independently
             // of the counter enable bit.", so the min is 1
-            Some(x) => max.min(*x.integer()).max(1),
+            Some(x) => max.min(x.integer()).max(1),
         };
 
         self.systick.set_reload(dur);
