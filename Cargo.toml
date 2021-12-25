@@ -1,6 +1,6 @@
 [package]
 name = "dwt-systick-monotonic"
-version = "0.1.0-rc.2"
+version = "1.0.0"
 authors = [
   "The Real-Time Interrupt-driven Concurrency developers",
   "Emil Fresk <emil.fresk@gmail.com>",
@@ -10,7 +10,7 @@ description = "RTIC Monotonic implemenation based on Systick and DWT"
 documentation = "https://docs.rs/dwt-systick-monotonic"
 repository = "https://github.com/rtic-rs/dwt-systick-monotonic"
 license = "MIT OR Apache-2.0"
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "dwt_systick_monotonic"
@@ -19,5 +19,5 @@ name = "dwt_systick_monotonic"
 
 [dependencies]
 cortex-m = "0.7"
-rtic-monotonic = "0.1.0-rc.2"
+rtic-monotonic = "1.0.0"
 fugit = "0.3.0"
