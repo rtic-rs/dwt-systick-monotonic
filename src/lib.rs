@@ -3,22 +3,33 @@
 #![no_std]
 
 use cortex_m::peripheral::{syst::SystClkSource, DCB, DWT, SYST};
-pub use fugit::{self, ExtU32};
+pub use fugit::{self, ExtU32, ExtU64};
 use rtic_monotonic::Monotonic;
 
-/// DWT and Systick combination implementing `embedded_time::Clock` and `rtic_monotonic::Monotonic`
+/// DWT and Systick combination implementing `rtic_monotonic::Monotonic`.
+///
+/// This implementation is tickless. It does not use periodic interrupts to count
+/// "ticks" (like `systick-monotonic`) but only to obtain actual desired compare
+/// events and to manage overflows.
 ///
 /// The frequency of the DWT and SysTick is encoded using the parameter `TIMER_HZ`.
+/// They must be equal.
+///
+/// Note that the SysTick interrupt must not be disabled longer than half the
+/// cycle counter overflow period (typically a couple seconds).
 pub struct DwtSystick<const TIMER_HZ: u32> {
     dwt: DWT,
     systick: SYST,
+    #[cfg(feature = "extend")]
+    last: u64,
 }
 
 impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
     /// Enable the DWT and provide a new `Monotonic` based on DWT and SysTick.
     ///
     /// Note that the `sysclk` parameter should come from e.g. the HAL's clock generation function
-    /// so the real speed and the declared speed can be compared.
+    /// so the speed calculated at runtime and the declared speed (generic parameter
+    /// `TIMER_HZ`) can be compared.
     #[inline(always)]
     pub fn new(dcb: &mut DCB, dwt: DWT, systick: SYST, sysclk: u32) -> Self {
         assert!(TIMER_HZ == sysclk);
@@ -30,19 +41,49 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
 
         // We do not start the counter here, it is started in `reset`.
 
-        DwtSystick { dwt, systick }
+        DwtSystick {
+            dwt,
+            systick,
+            #[cfg(feature = "extend")]
+            last: 0,
+        }
     }
 }
 
 impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
-    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = true;
+    cfg_if::cfg_if! {
+        if #[cfg(not(feature = "extend"))] {
+            const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = true;
 
-    type Instant = fugit::TimerInstantU32<TIMER_HZ>;
-    type Duration = fugit::TimerDurationU32<TIMER_HZ>;
+            type Instant = fugit::TimerInstantU32<TIMER_HZ>;
+            type Duration = fugit::TimerDurationU32<TIMER_HZ>;
 
-    #[inline(always)]
-    fn now(&mut self) -> Self::Instant {
-        Self::Instant::from_ticks(self.dwt.cyccnt.read())
+            #[inline(always)]
+            fn now(&mut self) -> Self::Instant {
+                Self::Instant::from_ticks(self.dwt.cyccnt.read())
+            }
+        } else {
+            // Need to detect and track overflows.
+            const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
+
+            type Instant = fugit::TimerInstantU64<TIMER_HZ>;
+            type Duration = fugit::TimerDurationU64<TIMER_HZ>;
+
+            #[inline(always)]
+            fn now(&mut self) -> Self::Instant {
+                let mut high = (self.last >> 32) as u32;
+                let low = self.last as u32;
+                let now = self.dwt.cyccnt.read();
+
+                // Detect CYCCNT overflow
+                if now.wrapping_sub(low) >= 1 << 31 {
+                    high = high.wrapping_add(1);
+                }
+                self.last = ((high as u64) << 32) | (now as u64);
+
+                Self::Instant::from_ticks(self.last)
+            }
+        }
     }
 
     unsafe fn reset(&mut self) {
@@ -71,7 +112,7 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
             Some(x) => max.min(x.ticks()).max(1),
         };
 
-        self.systick.set_reload(dur);
+        self.systick.set_reload(dur as u32);
         self.systick.clear_current();
     }
 
@@ -83,5 +124,12 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
     #[inline(always)]
     fn clear_compare_flag(&mut self) {
         // NOOP with SysTick interrupt
+    }
+
+    #[cfg(feature = "extend")]
+    fn on_interrupt(&mut self) {
+        // Ensure `now()` is called regularly to track overflows.
+        // Since SysTick is narrower than CYCCNT, this is sufficient.
+        self.now();
     }
 }
