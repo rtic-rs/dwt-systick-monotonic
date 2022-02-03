@@ -17,6 +17,9 @@ use rtic_monotonic::Monotonic;
 ///
 /// Note that the SysTick interrupt must not be disabled longer than half the
 /// cycle counter overflow period (typically a couple seconds).
+///
+/// When the `extend` feature is enabled, the cycle counter width is extended to
+/// `u64` by detecting and counting overflows.
 pub struct DwtSystick<const TIMER_HZ: u32> {
     dwt: DWT,
     systick: SYST,
@@ -76,7 +79,7 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
                 let now = self.dwt.cyccnt.read();
 
                 // Detect CYCCNT overflow
-                if now.wrapping_sub(low) >= 1 << 31 {
+                if now < low {
                     high = high.wrapping_add(1);
                 }
                 self.last = ((high as u64) << 32) | (now as u64);
