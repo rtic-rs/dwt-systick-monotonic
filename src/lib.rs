@@ -18,10 +18,11 @@ use rtic_monotonic::Monotonic;
 /// Note that the SysTick interrupt must not be disabled longer than half the
 /// cycle counter overflow period (typically a couple seconds).
 ///
+/// Note(Safety): Do not disable/enable or set/reset the DWT cycle counter.
+///
 /// When the `extend` feature is enabled, the cycle counter width is extended to
 /// `u64` by detecting and counting overflows.
 pub struct DwtSystick<const TIMER_HZ: u32> {
-    dwt: DWT,
     systick: SYST,
     #[cfg(feature = "extend")]
     last: u64,
@@ -34,7 +35,7 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
     /// so the speed calculated at runtime and the declared speed (generic parameter
     /// `TIMER_HZ`) can be compared.
     #[inline(always)]
-    pub fn new(dcb: &mut DCB, mut dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
+    pub fn new(dcb: &mut DCB, dwt: &mut DWT, mut systick: SYST, sysclk: u32) -> Self {
         assert!(TIMER_HZ == sysclk);
 
         dcb.enable_trace();
@@ -50,7 +51,6 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
         // We do not start the counters here but in `reset()`.
 
         DwtSystick {
-            dwt,
             systick,
             #[cfg(feature = "extend")]
             last: 0,
@@ -98,8 +98,8 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
         self.systick.enable_counter();
 
         // Enable and reset the cycle counter to locate the epoch.
-        self.dwt.enable_cycle_counter();
-        self.dwt.set_cycle_count(0);
+        (*DWT::PTR).ctrl.modify(|r| r | 1);
+        (*DWT::PTR).cyccnt.write(0);
     }
 
     fn set_compare(&mut self, val: Self::Instant) {
