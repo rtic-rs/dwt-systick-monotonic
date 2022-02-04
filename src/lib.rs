@@ -124,12 +124,13 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
         Self::Instant::from_ticks(0)
     }
 
-    #[inline(always)]
-    fn clear_compare_flag(&mut self) {
-        // Set a long reload in case `set_compare()` is not called again.
-        #[cfg(feature = "extend")]
+    #[cfg(feature = "extend")]
+    fn disable_timer(&mut self) {
+        // Do not disable but set a maximum reload value.
         self.systick.set_reload(0xff_ffff);
-        #[cfg(feature = "extend")]
+        // Also clear the current counter since.
+        // That doesn't cause a SysTick interrupt and loads the reload
+        // value on the next cycle.
         self.systick.clear_current();
     }
 
@@ -137,6 +138,9 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
     fn on_interrupt(&mut self) {
         // Ensure `now()` is called regularly to track overflows.
         // Since SysTick is narrower than CYCCNT, this is sufficient.
+        // TODO: check whether this could be moved to `disable_timer()`
+        // as that's the complementary code branch to `set_compare()`
+        // (which already calls `now()`).
         self.now();
     }
 }
