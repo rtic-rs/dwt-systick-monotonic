@@ -99,14 +99,15 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
     }
 
     fn set_compare(&mut self, val: Self::Instant) {
-        // The input `val` is in the timer, but the SysTick is a down-counter.
-        // We need to convert into its domain.
-        let now = self.now();
-
+        // The input `val` refers to the cycle counter value (up-counter)
+        // but the SysTick is a down-counter with interrupt on zero.
         let reload = val
-            .checked_duration_since(now)
+            .checked_duration_since(self.now())
             // Minimum reload value if `val` is in the past
-            .map_or(0, |t| t.ticks())
+            .map_or(0, |duration| duration.ticks())
+            // CYCCNT and SysTick have the same clock, no
+            // ticks conversion necessary, only clamping:
+            //
             // ARM Architecture Reference Manual says:
             // "Setting SYST_RVR to zero has the effect of
             // disabling the SysTick counter independently
@@ -116,6 +117,8 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
             .min(0xff_ffff) as u32;
 
         self.systick.set_reload(reload);
+        // Also clear the current counter. That doesn't cause a SysTick
+        // interrupt and loads the reload value on the next cycle.
         self.systick.clear_current();
     }
 
@@ -124,23 +127,27 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
         Self::Instant::from_ticks(0)
     }
 
-    #[cfg(feature = "extend")]
-    fn disable_timer(&mut self) {
-        // Do not disable but set a maximum reload value.
-        self.systick.set_reload(0xff_ffff);
-        // Also clear the current counter since.
-        // That doesn't cause a SysTick interrupt and loads the reload
-        // value on the next cycle.
-        self.systick.clear_current();
+    #[inline(always)]
+    fn clear_compare_flag(&mut self) {
+        // SysTick exceptions don't need flag clearing.
+        //
+        // But when extending the cycle counter range, we need to keep
+        // the interrupts enabled to detect overflow.
+        // This function is always called in the interrupt handler early.
+        // Reset a maximum reload value in case `set_compare()` is not called.
+        // Otherwise the interrupt would keep firing at the previous set
+        // interval.
+        #[cfg(feature = "extend")]
+        {
+            self.systick.set_reload(0xff_ffff);
+            self.systick.clear_current();
+        }
     }
 
     #[cfg(feature = "extend")]
     fn on_interrupt(&mut self) {
         // Ensure `now()` is called regularly to track overflows.
         // Since SysTick is narrower than CYCCNT, this is sufficient.
-        // TODO: check whether this could be moved to `disable_timer()`
-        // as that's the complementary code branch to `set_compare()`
-        // (which already calls `now()`).
         self.now();
     }
 }
