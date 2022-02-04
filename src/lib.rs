@@ -34,16 +34,20 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
     /// so the speed calculated at runtime and the declared speed (generic parameter
     /// `TIMER_HZ`) can be compared.
     #[inline(always)]
-    pub fn new(dcb: &mut DCB, dwt: DWT, systick: SYST, sysclk: u32) -> Self {
+    pub fn new(dcb: &mut DCB, dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
         assert!(TIMER_HZ == sysclk);
-        assert!(DWT::has_cycle_counter());
 
         dcb.enable_trace();
         DWT::unlock();
+        assert!(DWT::has_cycle_counter());
 
+        // Clear the cycle counter here so scheduling (`set_compare()`) before
+        // `reset()` works correctly.
         unsafe { dwt.cyccnt.write(0) };
 
-        // We do not start the counter here, it is started in `reset`.
+        systick.set_clock_source(SystClkSource::Core);
+
+        // We do not start the counters here but in `reset()`.
 
         DwtSystick {
             dwt,
@@ -93,9 +97,9 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
     unsafe fn reset(&mut self) {
         self.dwt.enable_cycle_counter();
 
-        self.systick.set_clock_source(SystClkSource::Core);
         self.systick.enable_counter();
 
+        // Reset the cycle counter to locate the epoch.
         self.dwt.cyccnt.write(0);
     }
 
