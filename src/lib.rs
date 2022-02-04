@@ -1,4 +1,4 @@
-//! # `Monotonic` implementation based on DWT and SysTick
+//! # `Monotonic` implementation based on DWT cycle counter and SysTick
 
 #![no_std]
 
@@ -34,16 +34,16 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
     /// so the speed calculated at runtime and the declared speed (generic parameter
     /// `TIMER_HZ`) can be compared.
     #[inline(always)]
-    pub fn new(dcb: &mut DCB, dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
+    pub fn new(dcb: &mut DCB, mut dwt: DWT, mut systick: SYST, sysclk: u32) -> Self {
         assert!(TIMER_HZ == sysclk);
 
         dcb.enable_trace();
         DWT::unlock();
         assert!(DWT::has_cycle_counter());
 
-        // Clear the cycle counter here so scheduling (`set_compare()`) before
-        // `reset()` works correctly.
-        unsafe { dwt.cyccnt.write(0) };
+        // Clear the cycle counter here so scheduling (`set_compare()`) before `reset()`
+        // works correctly.
+        dwt.set_cycle_count(0);
 
         systick.set_clock_source(SystClkSource::Core);
 
@@ -68,7 +68,7 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
 
             #[inline(always)]
             fn now(&mut self) -> Self::Instant {
-                Self::Instant::from_ticks(self.dwt.cyccnt.read())
+                Self::Instant::from_ticks(DWT::cycle_count())
             }
         } else {
             // Need to detect and track overflows.
@@ -81,7 +81,7 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
             fn now(&mut self) -> Self::Instant {
                 let mut high = (self.last >> 32) as u32;
                 let low = self.last as u32;
-                let now = self.dwt.cyccnt.read();
+                let now = DWT::cycle_count();
 
                 // Detect CYCCNT overflow
                 if now < low {
@@ -95,12 +95,11 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
     }
 
     unsafe fn reset(&mut self) {
-        self.dwt.enable_cycle_counter();
-
         self.systick.enable_counter();
 
-        // Reset the cycle counter to locate the epoch.
-        self.dwt.cyccnt.write(0);
+        // Enable and reset the cycle counter to locate the epoch.
+        self.dwt.enable_cycle_counter();
+        self.dwt.set_cycle_count(0);
     }
 
     fn set_compare(&mut self, val: Self::Instant) {
