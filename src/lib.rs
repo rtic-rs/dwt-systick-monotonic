@@ -36,6 +36,7 @@ impl<const TIMER_HZ: u32> DwtSystick<TIMER_HZ> {
     #[inline(always)]
     pub fn new(dcb: &mut DCB, dwt: DWT, systick: SYST, sysclk: u32) -> Self {
         assert!(TIMER_HZ == sysclk);
+        assert!(DWT::has_cycle_counter());
 
         dcb.enable_trace();
         DWT::unlock();
