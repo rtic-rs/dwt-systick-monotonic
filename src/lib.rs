@@ -126,7 +126,11 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
 
     #[inline(always)]
     fn clear_compare_flag(&mut self) {
-        // NOOP with SysTick interrupt
+        // Set a long reload in case `set_compare()` is not called again.
+        #[cfg(feature = "extend")]
+        self.systick.set_reload(0xff_ffff);
+        #[cfg(feature = "extend")]
+        self.systick.clear_current();
     }
 
     #[cfg(feature = "extend")]
