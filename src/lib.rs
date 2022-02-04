@@ -103,19 +103,19 @@ impl<const TIMER_HZ: u32> Monotonic for DwtSystick<TIMER_HZ> {
         // We need to convert into its domain.
         let now = self.now();
 
-        let max = 0x00ff_ffff;
-
-        let dur = match val.checked_duration_since(now) {
-            None => 1, // In the past
-
+        let reload = val
+            .checked_duration_since(now)
+            // Minimum reload value if `val` is in the past
+            .map_or(0, |t| t.ticks())
             // ARM Architecture Reference Manual says:
             // "Setting SYST_RVR to zero has the effect of
             // disabling the SysTick counter independently
             // of the counter enable bit.", so the min is 1
-            Some(x) => max.min(x.ticks()).max(1),
-        };
+            .max(1)
+            // SysTick is a 24 bit counter.
+            .min(0xff_ffff) as u32;
 
-        self.systick.set_reload(dur as u32);
+        self.systick.set_reload(reload);
         self.systick.clear_current();
     }
 
