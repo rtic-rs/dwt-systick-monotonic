@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - CI changelog entry enforcer
+- New feature `extend` to track DWT cycle counter overflows and extend
+  the range to `u64`.
 
 ## [v1.0.0] - 2021-12-25
 
