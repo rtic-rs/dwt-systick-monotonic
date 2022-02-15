@@ -3,7 +3,11 @@
 #![no_std]
 
 use cortex_m::peripheral::{syst::SystClkSource, DCB, DWT, SYST};
-pub use fugit::{self, ExtU32, ExtU64};
+pub use fugit;
+#[cfg(not(feature = "extend"))]
+pub use fugit::ExtU32;
+#[cfg(feature = "extend")]
+pub use fugit::ExtU64;
 use rtic_monotonic::Monotonic;
 
 /// DWT and Systick combination implementing `rtic_monotonic::Monotonic`.
