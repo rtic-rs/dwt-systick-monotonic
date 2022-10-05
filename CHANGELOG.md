@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v1.1.0] - 2022-10-05
+
 ### Added
 
 - CI changelog entry enforcer
